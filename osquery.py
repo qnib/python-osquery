@@ -10,7 +10,7 @@ Options:
     --out <str>             Output mode (json,csv,line,list) [default: json]
     --templates             Output predefined SQL statements
     --sys <str>             OS Version (to be self discovered) [default: macosx]
-    --sys-id <str>          Global identifier for system (Mainboard-SN?) [default: AFFE001]
+    --sys-id <str>          Global identifier for system (DOCKER: containerid, physical:Mainboard-SN?)
     --neo4j                 Use neo4j server to fill inventory
     --host <str>            neo4j hostname [default: neo4j.service.consul]
     -h --help               Show this screen.
@@ -238,6 +238,7 @@ class OsQuery(object):
                     }
                 },
             }
+        self.is_container()
         if self._cfg['--neo4j']:
             url = "http://%(--host)s:7474" % self._cfg
             try:
@@ -252,6 +253,18 @@ class OsQuery(object):
                 "SW_INST": self._gdb.labels.create("SW_INSTALLATION"),
                 }
             self.get_sys()
+
+    def is_container(self):
+        """ Determines whether system is docker container
+        :return: container-id if docker container, None if not
+        """
+        if os.path.exists("/proc/self/cgroup"):
+            reg = re.compile("\d+\:\w+\:/docker/(\w+)")
+            with open("/proc/self/cgroup", "r") as fd:
+                for line in fd.readlines():
+                    mat = re.match(reg, line)
+                    if mat and self._cfg['--sys-id'] is None:
+                        self._cfg['--sys-id'] = mat.group(1)
 
     def get_sys(self):
         """ Fetches systems GUID
